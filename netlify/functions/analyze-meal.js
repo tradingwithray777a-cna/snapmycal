@@ -1,12 +1,3 @@
-/ Netlify Function: analyzes a food photo with Google Gemini (free tier) and
-// returns structured calorie/nutrient JSON. Keeps the API key server-side.
-//
-// Setup:
-//   1. Get a free key at https://aistudio.google.com/app/apikey
-//   2. In Netlify: Site settings -> Environment variables -> add GEMINI_API_KEY
-//   3. Deploy this folder (netlify.toml + netlify/functions/analyze-meal.js)
-//      alongside index.html at your site root.
-
 const PROMPT = `You are a nutrition estimation assistant analyzing a photo of a meal.
 Identify each distinct food item visible. For each item estimate:
 - name (short, specific)
