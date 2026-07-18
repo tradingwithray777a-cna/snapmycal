@@ -35,7 +35,7 @@ exports.handler = async (event) => {
     }
 
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -51,7 +51,14 @@ exports.handler = async (event) => {
       }
     );
 
-    const data = await res.json();
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.error('Non-JSON response from Gemini, status', res.status, 'body:', rawText.slice(0, 500));
+      return { statusCode: 502, body: JSON.stringify({ error: 'Gemini returned a non-JSON response', status: res.status }) };
+    }
     if (!res.ok) {
       console.error('Gemini API error', res.status, JSON.stringify(data));
       return { statusCode: res.status, body: JSON.stringify({ error: data.error?.message || 'Gemini API error' }) };
