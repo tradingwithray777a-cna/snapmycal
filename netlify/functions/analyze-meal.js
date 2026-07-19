@@ -28,54 +28,58 @@ exports.handler = async (event) => {
     if (!image) {
       return { statusCode: 400, body: JSON.stringify({ error: 'Missing image (base64) in request body' }) };
     }
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.CLAUDE_API_KEY;
     if (!apiKey) {
-      console.error('GEMINI_API_KEY missing');
-      return { statusCode: 500, body: JSON.stringify({ error: 'GEMINI_API_KEY is not configured on the server' }) };
+      console.error('CLAUDE_API_KEY missing');
+      return { statusCode: 500, body: JSON.stringify({ error: 'CLAUDE_API_KEY is not configured on the server' }) };
     }
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: PROMPT },
-              { inline_data: { mime_type: mimeType || 'image/jpeg', data: image } },
-            ],
-          }],
-          generationConfig: { response_mime_type: 'application/json', temperature: 0.2 },
-        }),
-      }
-    );
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mimeType || 'image/jpeg', data: image } },
+            { type: 'text', text: PROMPT },
+          ],
+        }],
+      }),
+    });
 
     const rawText = await res.text();
     let data;
     try {
       data = JSON.parse(rawText);
     } catch {
-      console.error('Non-JSON response from Gemini, status', res.status, 'body:', rawText.slice(0, 500));
-      return { statusCode: 502, body: JSON.stringify({ error: 'Gemini returned a non-JSON response', status: res.status }) };
+      console.error('Non-JSON response from Claude, status', res.status, 'body:', rawText.slice(0, 500));
+      return { statusCode: 502, body: JSON.stringify({ error: 'Claude returned a non-JSON response', status: res.status }) };
     }
     if (!res.ok) {
-      console.error('Gemini API error', res.status, JSON.stringify(data));
-      return { statusCode: res.status, body: JSON.stringify({ error: data.error?.message || 'Gemini API error' }) };
+      console.error('Claude API error', res.status, JSON.stringify(data));
+      return { statusCode: res.status, body: JSON.stringify({ error: data.error?.message || 'Claude API error' }) };
     }
 
-    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.content?.[0]?.text;
     if (!text) {
-      console.error('Empty response from Gemini', JSON.stringify(data));
-      return { statusCode: 502, body: JSON.stringify({ error: 'Empty response from Gemini' }) };
+      console.error('Empty response from Claude', JSON.stringify(data));
+      return { statusCode: 502, body: JSON.stringify({ error: 'Empty response from Claude' }) };
     }
 
     let parsed;
     try {
-      parsed = JSON.parse(text);
+      const cleaned = text.trim().replace(/^```(json)?/i, '').replace(/```$/, '').trim();
+      parsed = JSON.parse(cleaned);
     } catch {
-      console.error('Could not parse Gemini response as JSON', text);
-      return { statusCode: 502, body: JSON.stringify({ error: 'Could not parse Gemini response as JSON', raw: text }) };
+      console.error('Could not parse Claude response as JSON', text);
+      return { statusCode: 502, body: JSON.stringify({ error: 'Could not parse Claude response as JSON', raw: text }) };
     }
 
     return {
